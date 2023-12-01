@@ -69,3 +69,6 @@ typings/
 
 # db
 /mongo
+
+#media
+public/media

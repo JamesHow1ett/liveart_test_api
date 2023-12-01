@@ -25,6 +25,14 @@ export class Product extends Entity {
   })
   description?: string;
 
+  @property({
+    type: 'object',
+  })
+  medias: {
+    images: Array<ProductMedia>;
+    thumbnail: Array<ProductMedia>;
+  };
+
   // Define well-known properties here
 
   // Indexer property to allow additional data
@@ -34,6 +42,15 @@ export class Product extends Entity {
   constructor(data?: Partial<Product>) {
     super(data);
   }
+}
+
+export interface ProductMedia {
+  filename: string;
+  originalname: string;
+  size: number;
+  path: string;
+  createAt: number;
+  updateAt: number;
 }
 
 export interface ProductRelations {

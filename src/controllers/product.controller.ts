@@ -16,14 +16,24 @@ import {
   del,
   requestBody,
   response,
+  Request,
+  RestBindings,
+  Response,
 } from '@loopback/rest';
-import {Product} from '../models';
+import {Product, ProductMedia} from '../models';
 import {ProductRepository} from '../repositories';
+import {inject} from '@loopback/core';
+import {upload} from '../middleware/upload-files.middleware';
+import {
+  deletePublicMediaByFilename,
+  productMediaFactory,
+  updateProductImg,
+} from './utils/product-controller';
 
 export class ProductController {
   constructor(
     @repository(ProductRepository)
-    public productRepository : ProductRepository,
+    public productRepository: ProductRepository,
   ) {}
 
   @post('/products')
@@ -33,17 +43,40 @@ export class ProductController {
   })
   async create(
     @requestBody({
+      description: 'multipart/form-data',
+      required: true,
       content: {
-        'application/json': {
-          schema: getModelSchemaRef(Product, {
-            title: 'NewProduct',
-            exclude: ['id'],
-          }),
+        'multipart/form-data': {
+          'x-parser': 'stream',
+          schema: {type: 'object'},
         },
       },
     })
-    product: Omit<Product, 'id'>,
+    request: Request,
+    @inject(RestBindings.Http.RESPONSE) res: Response,
   ): Promise<Product> {
+    const product = await new Promise<Product>((resolve, reject) => {
+      upload.any()(request, res, err => {
+        if (err) {
+          reject(err);
+        } else {
+          const [file] = request.files
+            ? (request.files as Array<Express.Multer.File>)
+            : [];
+
+          resolve({
+            ...request.body,
+            medias: {
+              images: [
+                /* can be used in future if product will expaned */
+              ],
+              thumbnail: [this.createProductMedia(file)],
+            },
+          });
+        }
+      });
+    });
+
     return this.productRepository.create(product);
   }
 
@@ -52,9 +85,7 @@ export class ProductController {
     description: 'Product model count',
     content: {'application/json': {schema: CountSchema}},
   })
-  async count(
-    @param.where(Product) where?: Where<Product>,
-  ): Promise<Count> {
+  async count(@param.where(Product) where?: Where<Product>): Promise<Count> {
     return this.productRepository.count(where);
   }
 
@@ -106,7 +137,8 @@ export class ProductController {
   })
   async findById(
     @param.path.string('id') id: string,
-    @param.filter(Product, {exclude: 'where'}) filter?: FilterExcludingWhere<Product>
+    @param.filter(Product, {exclude: 'where'})
+    filter?: FilterExcludingWhere<Product>,
   ): Promise<Product> {
     return this.productRepository.findById(id, filter);
   }
@@ -135,9 +167,79 @@ export class ProductController {
   })
   async replaceById(
     @param.path.string('id') id: string,
-    @requestBody() product: Product,
+    @requestBody({
+      description: 'multipart/form-data',
+      required: true,
+      content: {
+        'multipart/form-data': {
+          'x-parser': 'stream',
+          schema: {type: 'object'},
+        },
+      },
+    })
+    request: Request,
+    @inject(RestBindings.Http.RESPONSE) res: Response,
   ): Promise<void> {
-    await this.productRepository.replaceById(id, product);
+    const product = await this.productRepository.findById(id);
+    const updatedProduct = await new Promise<Product>((resolve, reject) => {
+      upload.any()(request, res, err => {
+        if (err) {
+          reject(err);
+        } else {
+          const [file] = request.files
+            ? (request.files as Array<Express.Multer.File>)
+            : [];
+
+          const isProductHasThumbnail = !!product.medias.thumbnail[0];
+          if (file) {
+            const thumbnail: Array<ProductMedia> = [];
+
+            if (isProductHasThumbnail) {
+              this.deleteProductMedia(product.medias.thumbnail[0].filename);
+
+              thumbnail.push(
+                this.updateProductMedia(
+                  product.medias.thumbnail[0],
+                  file.filename,
+                ),
+              );
+            } else {
+              thumbnail.push(this.createProductMedia(file));
+            }
+
+            resolve({
+              ...product,
+              ...request.body,
+              medias: {
+                ...product.medias,
+                thumbnail,
+              },
+            });
+          } else {
+            if (isProductHasThumbnail && request.body.removeThumb) {
+              this.deleteProductMedia(product.medias.thumbnail[0].filename);
+            }
+
+            const newProduct = request.body.removeThumb
+              ? {
+                  ...product,
+                  ...request.body,
+                  medias: {
+                    ...product.medias,
+                    thumbnail: [],
+                  },
+                }
+              : {
+                  ...product,
+                  ...request.body,
+                };
+
+            resolve(newProduct);
+          }
+        }
+      });
+    });
+    await this.productRepository.replaceById(id, updatedProduct);
   }
 
   @del('/products/{id}')
@@ -146,5 +248,20 @@ export class ProductController {
   })
   async deleteById(@param.path.string('id') id: string): Promise<void> {
     await this.productRepository.deleteById(id);
+  }
+
+  private createProductMedia(file?: Express.Multer.File): ProductMedia {
+    return productMediaFactory(file);
+  }
+
+  private updateProductMedia(
+    media: ProductMedia,
+    filename: string,
+  ): ProductMedia {
+    return updateProductImg(media, filename);
+  }
+
+  private deleteProductMedia(filename: string): boolean {
+    return deletePublicMediaByFilename(filename);
   }
 }
