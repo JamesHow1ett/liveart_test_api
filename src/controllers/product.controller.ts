@@ -107,6 +107,25 @@ export class ProductController {
     return this.productRepository.find(filter);
   }
 
+  @get('/products/active')
+  @response(200, {
+    description: 'Array of Product model instances',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'array',
+          items: getModelSchemaRef(Product, {includeRelations: true}),
+        },
+      },
+    },
+  })
+  async findAllActiveProducts(@param.filter(Product) filter?: Filter<Product>) {
+    const where = {hidden: false};
+    return this.productRepository.find(
+      Object.assign({}, filter, {where}) as Filter<Product>,
+    );
+  }
+
   @patch('/products')
   @response(200, {
     description: 'Product PATCH success count',

@@ -33,6 +33,12 @@ export class Product extends Entity {
     thumbnail: Array<ProductMedia>;
   };
 
+  @property({
+    type: 'boolean',
+    required: true,
+  })
+  hidden: boolean;
+
   // Define well-known properties here
 
   // Indexer property to allow additional data
