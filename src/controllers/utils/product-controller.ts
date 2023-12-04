@@ -33,9 +33,16 @@ export function deletePublicMediaByFilename(filename: string): boolean {
   );
 
   try {
-    fs.unlink(fullPath, err => {
-      if (err) {
-        throw err;
+    fs.stat(fullPath, (error, stats) => {
+      if (error) {
+        throw error;
+      }
+      if (stats.isFile()) {
+        fs.unlink(fullPath, err => {
+          if (err) {
+            throw err;
+          }
+        });
       }
     });
   } catch (err) {
@@ -44,4 +51,16 @@ export function deletePublicMediaByFilename(filename: string): boolean {
   }
 
   return true;
+}
+
+export function parseToBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (value === 'true') {
+    return true;
+  }
+
+  return false;
 }

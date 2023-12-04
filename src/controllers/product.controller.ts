@@ -28,6 +28,7 @@ import {
   deletePublicMediaByFilename,
   productMediaFactory,
   updateProductImg,
+  parseToBoolean,
 } from './utils/product-controller';
 
 export class ProductController {
@@ -66,6 +67,7 @@ export class ProductController {
 
           resolve({
             ...request.body,
+            tags: JSON.parse(request.body?.tags ?? '[]'),
             medias: {
               images: [
                 /* can be used in future if product will expaned */
@@ -229,20 +231,24 @@ export class ProductController {
             resolve({
               ...product,
               ...request.body,
+              tags: JSON.parse(request.body?.tags ?? '[]'),
               medias: {
                 ...product.medias,
                 thumbnail,
               },
             });
           } else {
-            if (isProductHasThumbnail && request.body.removeThumb) {
+            const shouldRemoveMedia = parseToBoolean(request.body.removeThumb);
+
+            if (isProductHasThumbnail && shouldRemoveMedia) {
               this.deleteProductMedia(product.medias.thumbnail[0].filename);
             }
 
-            const newProduct = request.body.removeThumb
+            const newProduct = shouldRemoveMedia
               ? {
                   ...product,
                   ...request.body,
+                  tags: JSON.parse(request.body?.tags ?? '[]'),
                   medias: {
                     ...product.medias,
                     thumbnail: [],
@@ -251,6 +257,7 @@ export class ProductController {
               : {
                   ...product,
                   ...request.body,
+                  tags: JSON.parse(request.body?.tags ?? '[]'),
                 };
 
             resolve(newProduct);

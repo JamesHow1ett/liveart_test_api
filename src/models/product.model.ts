@@ -1,5 +1,6 @@
 import {Entity, belongsTo, model, property} from '@loopback/repository';
 import {ProductCategory} from './product-category.model';
+import {ProductTag} from './tags.model';
 
 @model({settings: {strict: false}})
 export class Product extends Entity {
@@ -32,6 +33,11 @@ export class Product extends Entity {
     images: Array<ProductMedia>;
     thumbnail: Array<ProductMedia>;
   };
+
+  @property({
+    type: 'object',
+  })
+  tags?: ProductTag[];
 
   @property({
     type: 'boolean',
